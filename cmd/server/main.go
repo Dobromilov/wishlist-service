@@ -10,10 +10,31 @@ import (
 	"time"
 
 	"wishlist-service/internal/config"
+	"wishlist-service/internal/storage"
 )
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+
 	cfg := config.Load()
+	logger.Info("starting server", "port", cfg.AppPort)
+
+	ctx := context.Background()
+
+	db, err := storage.New(ctx, cfg, logger)
+	if err != nil {
+		logger.Error("failed to connect to database", "error", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	// Применение миграций
+	if err := storage.RunMigrations(cfg.DSN(), "migrations", logger); err != nil {
+		logger.Error("failed to run migrations", "error", err)
+		os.Exit(1)
+	}
 
 	mux := http.NewServeMux()
 
@@ -27,11 +48,6 @@ func main() {
 		Addr:    ":" + cfg.AppPort,
 		Handler: mux,
 	}
-
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
-	logger.Info("starting server", "port", cfg.AppPort)
 
 	go func() {
 		logger.Info("server listening", "addr", cfg.AppPort)
