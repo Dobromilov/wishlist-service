@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"wishlist-service/internal/service"
 )
@@ -22,7 +21,7 @@ func NewPublicHandler(wishlistService *service.WishlistService, logger *slog.Log
 }
 
 func (h *PublicHandler) GetWishlist(w http.ResponseWriter, r *http.Request) {
-	token := strings.TrimPrefix(r.URL.Path, "/public/")
+	token := r.PathValue("token")
 
 	wishlist, err := h.wishlistService.GetByPublicToken(r.Context(), token)
 	if err != nil {

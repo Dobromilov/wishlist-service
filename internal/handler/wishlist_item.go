@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"wishlist-service/internal/service"
+	"wishlist-service/internal/validator"
 )
 
 type WishlistItemHandler struct {
@@ -23,11 +23,20 @@ func NewWishlistItemHandler(wishlistService *service.WishlistService, logger *sl
 }
 
 func (h *WishlistItemHandler) Create(w http.ResponseWriter, r *http.Request) {
-	wishlistIDStr := strings.TrimPrefix(r.URL.Path, "/api/wishlists/")
-	wishlistIDStr = strings.TrimSuffix(wishlistIDStr, "/items")
-	wishlistID, err := strconv.Atoi(wishlistIDStr)
+	userID, ok := GetUserIDFromContext(r.Context())
+	if !ok {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	wishlistID, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid wishlist id")
+		return
+	}
+
+	if err := h.wishlistService.OwnsWishlist(r.Context(), wishlistID, userID); err != nil {
+		h.respondError(w, http.StatusForbidden, "forbidden")
 		return
 	}
 
@@ -42,6 +51,15 @@ func (h *WishlistItemHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := validator.ItemName(body.Name); err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := validator.Priority(body.Priority); err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	item, err := h.wishlistService.AddItem(r.Context(), wishlistID, body.Name, body.Description, body.URL, body.Priority)
 	if err != nil {
 		h.logger.Error("create item failed", "error", err)
@@ -53,11 +71,20 @@ func (h *WishlistItemHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WishlistItemHandler) GetByWishlist(w http.ResponseWriter, r *http.Request) {
-	wishlistIDStr := strings.TrimPrefix(r.URL.Path, "/api/wishlists/")
-	wishlistIDStr = strings.TrimSuffix(wishlistIDStr, "/items")
-	wishlistID, err := strconv.Atoi(wishlistIDStr)
+	userID, ok := GetUserIDFromContext(r.Context())
+	if !ok {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	wishlistID, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid wishlist id")
+		return
+	}
+
+	if err := h.wishlistService.OwnsWishlist(r.Context(), wishlistID, userID); err != nil {
+		h.respondError(w, http.StatusForbidden, "forbidden")
 		return
 	}
 
@@ -71,20 +98,24 @@ func (h *WishlistItemHandler) GetByWishlist(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *WishlistItemHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/api/wishlists/")
-	parts := strings.Split(path, "/")
-	if len(parts) != 4 {
-		h.respondError(w, http.StatusBadRequest, "invalid url")
+	userID, ok := GetUserIDFromContext(r.Context())
+	if !ok {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
-	wishlistID, err := strconv.Atoi(parts[0])
+	wishlistID, err := strconv.Atoi(r.PathValue("wishlistId"))
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid wishlist id")
 		return
 	}
 
-	itemID, err := strconv.Atoi(parts[3])
+	if err := h.wishlistService.OwnsWishlist(r.Context(), wishlistID, userID); err != nil {
+		h.respondError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	itemID, err := strconv.Atoi(r.PathValue("itemId"))
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid item id")
 		return

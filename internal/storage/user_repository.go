@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"wishlist-service/internal/domain"
 )
@@ -37,7 +38,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.
 	err := r.db.QueryRow(ctx, query, email).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.CreatedAt, &user.UpdatedAt)
 
 	if err != nil {
-		if errors.Is(err, context.Canceled) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
 		return nil, err

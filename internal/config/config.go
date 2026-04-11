@@ -3,7 +3,13 @@ package config
 import (
 	"fmt"
 	"os"
+
+	"github.com/joho/godotenv"
 )
+
+func init() {
+	godotenv.Load()
+}
 
 type Config struct {
 	AppPort   string

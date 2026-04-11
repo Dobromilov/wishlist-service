@@ -5,9 +5,10 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
+	"time"
 
 	"wishlist-service/internal/service"
+	"wishlist-service/internal/validator"
 )
 
 type WishlistHandler struct {
@@ -36,6 +37,11 @@ func (h *WishlistHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if err := validator.Title(body.Title); err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -72,8 +78,7 @@ func (h *WishlistHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idStr := strings.TrimPrefix(r.URL.Path, "/api/wishlists/")
-	id, err := strconv.Atoi(idStr)
+	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid wishlist id")
 		return
@@ -97,6 +102,12 @@ func (h *WishlistHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	wishlist.Title = body.Title
 	wishlist.Description = body.Description
+	if body.EventDate != nil && *body.EventDate != "" {
+		t, err := time.Parse("2006-01-02", *body.EventDate)
+		if err == nil {
+			wishlist.EventDate = &t
+		}
+	}
 
 	if err := h.wishlistService.Update(r.Context(), userID, wishlist); err != nil {
 		h.respondError(w, http.StatusInternalServerError, "failed to update wishlist")
@@ -113,8 +124,7 @@ func (h *WishlistHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idStr := strings.TrimPrefix(r.URL.Path, "/api/wishlists/")
-	id, err := strconv.Atoi(idStr)
+	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid wishlist id")
 		return

@@ -4,17 +4,38 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
+	"time"
 
 	"wishlist-service/internal/domain"
-	"wishlist-service/internal/storage"
 )
 
-type WishlistService struct {
-	wishlistRepo *storage.WishlistRepository
-	itemRepo     *storage.WishlistItemRepository
+var ErrForbidden = errors.New("forbidden")
+
+type WishlistRepository interface {
+	Create(ctx context.Context, wishlist *domain.Wishlist) error
+	GetByID(ctx context.Context, id int) (*domain.Wishlist, error)
+	GetByPublicToken(ctx context.Context, token string) (*domain.Wishlist, error)
+	GetByUserID(ctx context.Context, userID int) ([]domain.Wishlist, error)
+	Update(ctx context.Context, wishlist *domain.Wishlist) error
+	Delete(ctx context.Context, id, userID int) error
 }
 
-func NewWishlistService(wishlistRepo *storage.WishlistRepository, itemRepo *storage.WishlistItemRepository) *WishlistService {
+type WishlistItemRepository interface {
+	Create(ctx context.Context, item *domain.WishlistItem) error
+	GetByID(ctx context.Context, id int) (*domain.WishlistItem, error)
+	GetByWishlistID(ctx context.Context, wishlistID int) ([]domain.WishlistItem, error)
+	Update(ctx context.Context, item *domain.WishlistItem) error
+	Delete(ctx context.Context, id, wishlistID int) error
+	Reserve(ctx context.Context, itemID int) error
+}
+
+type WishlistService struct {
+	wishlistRepo WishlistRepository
+	itemRepo     WishlistItemRepository
+}
+
+func NewWishlistService(wishlistRepo WishlistRepository, itemRepo WishlistItemRepository) *WishlistService {
 	return &WishlistService{
 		wishlistRepo: wishlistRepo,
 		itemRepo:     itemRepo,
@@ -29,6 +50,12 @@ func (s *WishlistService) Create(ctx context.Context, userID int, title string, 
 		Description: description,
 		PublicToken: token,
 	}
+	if eventDate != nil && *eventDate != "" {
+		t, err := time.Parse("2006-01-02", *eventDate)
+		if err == nil {
+			w.EventDate = &t
+		}
+	}
 	if err := s.wishlistRepo.Create(ctx, w); err != nil {
 		return nil, err
 	}
@@ -36,7 +63,14 @@ func (s *WishlistService) Create(ctx context.Context, userID int, title string, 
 }
 
 func (s *WishlistService) GetByID(ctx context.Context, id, userID int) (*domain.Wishlist, error) {
-	return s.wishlistRepo.GetByID(ctx, id)
+	w, err := s.wishlistRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if w.UserID != userID {
+		return nil, ErrForbidden
+	}
+	return w, nil
 }
 
 func (s *WishlistService) GetByUser(ctx context.Context, userID int) ([]domain.Wishlist, error) {
@@ -83,6 +117,17 @@ func (s *WishlistService) DeleteItem(ctx context.Context, id, wishlistID int) er
 
 func (s *WishlistService) ReserveItem(ctx context.Context, itemID int) error {
 	return s.itemRepo.Reserve(ctx, itemID)
+}
+
+func (s *WishlistService) OwnsWishlist(ctx context.Context, wishlistID, userID int) error {
+	w, err := s.wishlistRepo.GetByID(ctx, wishlistID)
+	if err != nil {
+		return err
+	}
+	if w.UserID != userID {
+		return ErrForbidden
+	}
+	return nil
 }
 
 func generateToken() string {

@@ -1,4 +1,3 @@
--- +goose Up
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -33,8 +32,3 @@ CREATE TABLE IF NOT EXISTS wishlist_items (
 CREATE INDEX IF NOT EXISTS idx_wishlists_user_id ON wishlists(user_id);
 CREATE INDEX IF NOT EXISTS idx_wishlists_public_token ON wishlists(public_token);
 CREATE INDEX IF NOT EXISTS idx_wishlist_items_wishlist_id ON wishlist_items(wishlist_id);
-
--- +goose Down
-DROP TABLE IF EXISTS wishlist_items;
-DROP TABLE IF EXISTS wishlists;
-DROP TABLE IF EXISTS users;

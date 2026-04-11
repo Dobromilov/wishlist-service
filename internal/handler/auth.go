@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"wishlist-service/internal/service"
+	"wishlist-service/internal/validator"
 )
 
 type AuthHandler struct {
@@ -27,8 +28,21 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := validator.Email(req.Email); err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := validator.Password(req.Password); err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	token, err := h.authService.Register(r.Context(), req)
 	if err != nil {
+		if err == service.ErrEmailTaken {
+			h.respondError(w, http.StatusConflict, "email already taken")
+			return
+		}
 		h.logger.Error("register failed", "error", err)
 		h.respondError(w, http.StatusInternalServerError, "failed to register")
 		return

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"wishlist-service/internal/domain"
@@ -15,6 +16,7 @@ import (
 var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
 	ErrInvalidToken       = errors.New("invalid or expired token")
+	ErrEmailTaken         = errors.New("email already taken")
 )
 
 type AuthService struct {
@@ -55,6 +57,9 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (string
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
+		if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "unique") {
+			return "", ErrEmailTaken
+		}
 		return "", err
 	}
 
