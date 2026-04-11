@@ -41,6 +41,13 @@ func main() {
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
 	authHandler := handler.NewAuthHandler(authService, logger)
 
+	wishlistRepo := storage.NewWishlistRepository(db.DB)
+	itemRepo := storage.NewWishlistItemRepository(db.DB)
+	wishlistService := service.NewWishlistService(wishlistRepo, itemRepo)
+	wishlistHandler := handler.NewWishlistHandler(wishlistService, logger)
+	itemHandler := handler.NewWishlistItemHandler(wishlistService, logger)
+	publicHandler := handler.NewPublicHandler(wishlistService, logger)
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -51,6 +58,17 @@ func main() {
 
 	mux.HandleFunc("POST /auth/register", authHandler.Register)
 	mux.HandleFunc("POST /auth/login", authHandler.Login)
+
+	mux.Handle("POST /api/wishlists", handler.AuthMiddleware(authService, http.HandlerFunc(wishlistHandler.Create)))
+	mux.Handle("GET /api/wishlists", handler.AuthMiddleware(authService, http.HandlerFunc(wishlistHandler.GetMy)))
+	mux.Handle("PUT /api/wishlists/", handler.AuthMiddleware(authService, http.HandlerFunc(wishlistHandler.Update)))
+	mux.Handle("DELETE /api/wishlists/", handler.AuthMiddleware(authService, http.HandlerFunc(wishlistHandler.Delete)))
+	mux.Handle("POST /api/wishlists/{id}/items", handler.AuthMiddleware(authService, http.HandlerFunc(itemHandler.Create)))
+	mux.Handle("GET /api/wishlists/{id}/items", handler.AuthMiddleware(authService, http.HandlerFunc(itemHandler.GetByWishlist)))
+	mux.Handle("DELETE /api/wishlists/{wishlistId}/items/{itemId}", handler.AuthMiddleware(authService, http.HandlerFunc(itemHandler.Delete)))
+
+	mux.HandleFunc("GET /public/{token}", publicHandler.GetWishlist)
+	mux.HandleFunc("POST /public/{token}/reserve", publicHandler.ReserveItem)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.AppPort,
