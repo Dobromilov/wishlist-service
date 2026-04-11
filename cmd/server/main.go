@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"wishlist-service/internal/config"
+	"wishlist-service/internal/handler"
+	"wishlist-service/internal/service"
 	"wishlist-service/internal/storage"
 )
 
@@ -30,11 +32,14 @@ func main() {
 	}
 	defer db.Close()
 
-	// Применение миграций
 	if err := storage.RunMigrations(cfg.DSN(), "migrations", logger); err != nil {
 		logger.Error("failed to run migrations", "error", err)
 		os.Exit(1)
 	}
+
+	userRepo := storage.NewUserRepository(db.DB)
+	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
+	authHandler := handler.NewAuthHandler(authService, logger)
 
 	mux := http.NewServeMux()
 
@@ -43,6 +48,9 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`))
 	})
+
+	mux.HandleFunc("POST /auth/register", authHandler.Register)
+	mux.HandleFunc("POST /auth/login", authHandler.Login)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.AppPort,
