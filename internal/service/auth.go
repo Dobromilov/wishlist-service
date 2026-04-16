@@ -57,7 +57,8 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (string
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
-		if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "unique") {
+		msg := strings.ToLower(err.Error())
+		if strings.Contains(msg, "duplicate") || strings.Contains(msg, "unique") {
 			return "", ErrEmailTaken
 		}
 		return "", err
@@ -81,6 +82,9 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest) (string, erro
 
 func (s *AuthService) ValidateToken(tokenStr string) (int, error) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		if token.Method == nil || token.Method.Alg() != jwt.SigningMethodHS256.Alg() {
+			return nil, ErrInvalidToken
+		}
 		return s.jwtSecret, nil
 	})
 	if err != nil || !token.Valid {

@@ -61,8 +61,8 @@ func main() {
 
 	mux.Handle("POST /api/wishlists", handler.AuthMiddleware(authService, http.HandlerFunc(wishlistHandler.Create)))
 	mux.Handle("GET /api/wishlists", handler.AuthMiddleware(authService, http.HandlerFunc(wishlistHandler.GetMy)))
-	mux.Handle("PUT /api/wishlists/", handler.AuthMiddleware(authService, http.HandlerFunc(wishlistHandler.Update)))
-	mux.Handle("DELETE /api/wishlists/", handler.AuthMiddleware(authService, http.HandlerFunc(wishlistHandler.Delete)))
+	mux.Handle("PUT /api/wishlists/{id}", handler.AuthMiddleware(authService, http.HandlerFunc(wishlistHandler.Update)))
+	mux.Handle("DELETE /api/wishlists/{id}", handler.AuthMiddleware(authService, http.HandlerFunc(wishlistHandler.Delete)))
 	mux.Handle("POST /api/wishlists/{id}/items", handler.AuthMiddleware(authService, http.HandlerFunc(itemHandler.Create)))
 	mux.Handle("GET /api/wishlists/{id}/items", handler.AuthMiddleware(authService, http.HandlerFunc(itemHandler.GetByWishlist)))
 	mux.Handle("DELETE /api/wishlists/{wishlistId}/items/{itemId}", handler.AuthMiddleware(authService, http.HandlerFunc(itemHandler.Delete)))

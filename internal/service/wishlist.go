@@ -78,6 +78,9 @@ func (s *WishlistService) GetByUser(ctx context.Context, userID int) ([]domain.W
 }
 
 func (s *WishlistService) Update(ctx context.Context, userID int, w *domain.Wishlist) error {
+	if w.UserID != userID {
+		return ErrForbidden
+	}
 	return s.wishlistRepo.Update(ctx, w)
 }
 
@@ -132,6 +135,9 @@ func (s *WishlistService) OwnsWishlist(ctx context.Context, wishlistID, userID i
 
 func generateToken() string {
 	b := make([]byte, 32)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback: return empty token so repository unique constraint can surface an error.
+		return ""
+	}
 	return hex.EncodeToString(b)
 }

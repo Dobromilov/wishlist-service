@@ -69,6 +69,26 @@ func TestValidateToken_Expired(t *testing.T) {
 	}
 }
 
+func TestValidateToken_WrongAlgorithm(t *testing.T) {
+	svc := &AuthService{jwtSecret: []byte("secret")}
+
+	claims := jwt.MapClaims{
+		"user_id": 1,
+		"email":   "test@test.com",
+		"exp":     4102444800, // 2100-01-01
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS384, claims)
+	wrongAlgToken, err := token.SignedString(svc.jwtSecret)
+	if err != nil {
+		t.Fatalf("SignedString() error = %v", err)
+	}
+
+	_, err = svc.ValidateToken(wrongAlgToken)
+	if err == nil {
+		t.Fatal("ValidateToken() expected error for invalid signing method")
+	}
+}
+
 func TestBcryptHashAndCompare(t *testing.T) {
 	password := "mysecurepassword123"
 

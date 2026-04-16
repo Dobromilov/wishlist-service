@@ -184,6 +184,20 @@ func TestWishlistService_OwnsWishlist(t *testing.T) {
 	}
 }
 
+func TestWishlistService_Update_Ownership(t *testing.T) {
+	repo := newTestWishlistRepo()
+	svc := NewWishlistService(repoWrapper{repo}, itemWrapper{repo})
+
+	wishlist, err := svc.Create(context.Background(), 1, "My Wishlist", "", nil)
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	if err := svc.Update(context.Background(), 2, wishlist); err != ErrForbidden {
+		t.Errorf("Update() error = %v, want ErrForbidden", err)
+	}
+}
+
 func TestWishlistService_AddItem(t *testing.T) {
 	repo := newTestWishlistRepo()
 	svc := NewWishlistService(repoWrapper{repo}, itemWrapper{repo})
